@@ -1,33 +1,35 @@
+import ollama
 from pydantic import BaseModel
-from google.genai.types import GenerateContentResponse
-from gemini_client import get_client, get_gemini_config
 
 class CarDescription(BaseModel):
     name: str
-    models: list[str]
     estimated_cost: int
     cost_of_maintenance: int
     summary: str
 
-def gemini_car_advisor( prompt: str ) -> CarDescription:
-
-    client = get_client()
-    model = "gemini-2.5-flash-lite"
+def ollama_car_advisor( prompt: str ) -> CarDescription:
     
-    #model_json_schema() is how you tell the model the response format you want
-    config = get_gemini_config(CarDescription.model_json_schema())
-
-    response: GenerateContentResponse = client.models.generate_content(
-        model=model, contents=prompt, config=config
+    response = ollama.chat(
+        model="gpt-oss:120b-cloud",
+        think=False,
+        stream=False,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        format=CarDescription.model_json_schema()
     )
+    
+    print("-" * 20)
+    print(response.message)
+    print("-" * 20)
 
-    #print("Total tokens:", response.usage_metadata.total_token_count)
-    #print("Total tokens:", response.usage_metadata.prompt_token_count)
-    #print("Total tokens:", response.usage_metadata.candidates_token_count)
-    json_response = response.text
-
-    #This is how you take the response and parse it to your format
-    return CarDescription.model_validate_json(json_response)
+    json_response = response.message.content
+    
+    review = CarDescription.model_validate_json(json_response)
+    return review
 
 system_prompt = """
 <Context>
@@ -46,7 +48,6 @@ Be direct and concise.
 <Format>
 You must output a json:
 - name: string with the car's name
-- models: list of strings with the car's models
 - estimated_cost: int with the car's starting price
 - cost_of_maintenance: int grade from 0 to 100 of the car's monthly maintenance cost, with 100 being the cheapest
 - summary: string with a short summary about the car. No more than 100 characters.
@@ -59,12 +60,10 @@ if __name__ == "__main__":
     print(f"\n🔍 Analyzing '{car_name}'... Please wait.\n")
 
     prompt = system_prompt.format(car_name=car_name)
-    car = gemini_car_advisor(prompt)
+    car = ollama_car_advisor(prompt)
         
     print(f"📌 Name:     {car.name}")
-    print(f"🚙 Models:   {', '.join(car.models)}")
-    print(f"💰 Price:    ${car.estimated_cost:,}")
+    print(f" Price:    ${car.estimated_cost:,}")
     print(f"🛠️  Maint:    {car.cost_of_maintenance}/100")
     print(f"\n📝 Summary:")
     print(f"   {car.summary}")
-    

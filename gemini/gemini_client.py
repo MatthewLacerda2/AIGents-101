@@ -27,7 +27,7 @@ def get_gemini_embeddings(text: str) -> np.ndarray:
     )
 
     embedding_values = response.embeddings[0].values
-    return np.array(embedding_values, dtype=np.float32)
+    return np.array(embedding_values, dtype=np.float64)
 
 def get_gemini_config(json_schema: dict[str, Any]) -> GenerateContentConfig:
     return GenerateContentConfig(
