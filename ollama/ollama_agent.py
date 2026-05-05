@@ -54,6 +54,8 @@ def main():
     messages = []
     print("\nChatbot initialized. Type your message below, or '/exit' to quit.\n")
     
+    max_loop_limit = 8
+    
     while True:
         user_input = input("You: ")
         if user_input.strip().lower() == "/exit":
@@ -63,7 +65,10 @@ def main():
             
         messages.append({'role': 'user', 'content': user_input})
         
-        while True:
+        loop_counter = 0
+        while loop_counter < max_loop_limit:
+            loop_counter += 1
+            
             response: ChatResponse = chat(
                 model='gemma4:e4b',
                 messages=messages,
@@ -81,9 +86,8 @@ def main():
             if response.message.tool_calls:
                 for tc in response.message.tool_calls:
                     if tc.function.name in available_functions:
-                        print(f"[DEBUG] Calling {tc.function.name} with arguments {tc.function.arguments}")
+                        print(f"\n{tc.function.name} is being executed...")
                         result = available_functions[tc.function.name](**tc.function.arguments)
-                        print(f"[DEBUG] Result: {str(result)[:200]}{'...' if len(str(result)) > 200 else ''}")
                         
                         # add the tool result to the messages
                         messages.append({
@@ -94,6 +98,9 @@ def main():
             else:
                 # end the loop when there are no more tool calls
                 break
+        
+        if loop_counter >= max_loop_limit:
+            print(f"\n[Warning] Reached the maximum loop limit of {max_loop_limit}.")
 
 if __name__ == "__main__":
     main()
