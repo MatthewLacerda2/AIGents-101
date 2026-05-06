@@ -88,11 +88,48 @@ def read_image_file(image_path: str) -> str:
   return f"Success: Loaded image from '{image_path}'."
 
 
+def create_file(name: str, extension: str, content: str) -> str:
+  """Creates a new file with the specified name, extension, and content.
+
+  This tool only supports creating files with the following extensions: .py, .ts, .md, and .txt.
+
+  Args:
+    name: The base name of the file to create (e.g., 'hello' or 'notes').
+    extension: The file extension, including the dot (e.g., '.py', '.ts', '.md', '.txt').
+    content: The string content to write into the new file.
+
+  Returns:
+    A success confirmation message, or an error description.
+  """
+  allowed_extensions = {'.py', '.ts', '.md', '.txt'}
+  
+  # Normalize extension formatting
+  ext = extension.strip().lower()
+  if not ext.startswith('.'):
+      ext = '.' + ext
+      
+  if ext not in allowed_extensions:
+      return f"Error: Extension '{extension}' is not permitted. Only .py, .ts, .md, and .txt files are allowed."
+      
+  # Form the full filename safely
+  filename = name.strip()
+  if not filename.endswith(ext):
+      filename += ext
+      
+  try:
+      with open(filename, 'w', encoding='utf-8') as f:
+          f.write(content)
+      return f"Success: File '{filename}' was successfully created."
+  except Exception as e:
+      return f"Error creating file '{filename}': {e}"
+
+
 available_functions = {
   'fetch_website_text': fetch_website_text,
   'list_files': list_files,
   'read_files': read_files,
   'read_image_file': read_image_file,
+  'create_file': create_file,
 }
 
 def main():
@@ -127,18 +164,21 @@ def main():
             response: ChatResponse = chat(
                 model='gemma4:e4b',
                 messages=messages,
-                tools=[fetch_website_text, list_files, read_files, read_image_file],
+                tools=[fetch_website_text, list_files, read_files, read_image_file, create_file],
                 think=True,
             )
             messages.append(response.message)
             
+            has_thought = False
             if hasattr(response.message, 'thinking') and response.message.thinking:
                 raw_thinking = response.message.thinking
                 short_thinking = (raw_thinking[:128] + "...") if len(raw_thinking) > 128 else raw_thinking
-                print(f"\n🧠 Thinking: {short_thinking}\n")
+                print(f"\n🧠 Thinking: {short_thinking}")
+                has_thought = True
             
             if response.message.content:
-                print(f"\n🤖 Assistant: {response.message.content}\n")
+                lead = "" if has_thought else "\n"
+                print(f"{lead}🤖 Assistant: {response.message.content}\n")
 
             if response.message.tool_calls:
                 for tc in response.message.tool_calls:
