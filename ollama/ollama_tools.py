@@ -4,7 +4,7 @@ import requests
 import mimetypes
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Any
 from datetime import datetime
 from bs4 import BeautifulSoup
 
@@ -29,22 +29,6 @@ def list_files(directory: str = '.') -> str:
         return "\n".join(files)
     except Exception as e:
         return f"Error listing directory '{directory}': {e}"
-
-def read_files(file_paths: List[str]) -> str:
-    allowed_extensions = {'.py', '.ts', '.tsx', '.md', '.txt'}
-    results = []
-    for path in file_paths:
-        _, ext = os.path.splitext(path)
-        if ext.lower() not in allowed_extensions:
-            results.append(f"--- File: {path} ---\nError: Reading this file extension is not allowed. Only .py, .ts, .tsx, .md, and .txt are permitted.")
-            continue
-        try:
-            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-            results.append(f"--- File: {path} ---\n{content}")
-        except Exception as e:
-            results.append(f"--- File: {path} ---\nError reading file: {e}")
-    return "\n\n".join(results)
 
 def read_image_file(image_path: str) -> str:
     allowed_extensions = {'.png', '.bmp', '.jpg', '.jpeg'}
@@ -87,6 +71,30 @@ def create_file(name: str, extension: str, content: str) -> str:
         return f"Success: File '{filename}' was successfully created."
     except Exception as e:
         return f"Error creating file '{filename}': {e}"
+
+def create_text_file(file_path: str, content: str = "") -> str:
+    """Creates a new text file with the specified content.
+    
+    Only .py, .ts, .tsx, .md, and .txt files are allowed.
+    """
+    allowed_extensions = {'.py', '.ts', '.tsx', '.md', '.txt'}
+    _, ext = os.path.splitext(file_path)
+    if ext.lower() not in allowed_extensions:
+        return f"Error: File extension '{ext}' is not allowed. Only .py, .ts, .tsx, .md, and .txt are permitted."
+    
+    directory = os.path.dirname(file_path)
+    if directory:
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except Exception as e:
+            return f"Error creating directory '{directory}': {e}"
+            
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return f"Successfully created {file_path}"
+    except Exception as e:
+        return f"Error creating file '{file_path}': {e}"
 
 def get_video_screenshot(video_path: str, timestamp: str = None) -> str:
     if not os.path.exists(video_path):
@@ -220,3 +228,97 @@ def get_target_info(target_path: str) -> str:
         output.insert(1, f"Type:      File ({mime_type})")
     output.append("-------------------")
     return "\n".join(output)
+
+def read_text_files(file_paths: List[str], read_by_chunks_of_40: bool = False) -> str:
+    """Reads allowed text files (.py, .ts, .tsx, .md, .txt).
+    
+    If read_by_chunks_of_40 is True, the file content is split into chunks of 40 lines,
+    and returned with visual chunk headers (e.g., [Chunk 0 (Lines 1-40)]).
+    """
+    allowed_extensions = {'.py', '.ts', '.tsx', '.md', '.txt'}
+    results = []
+    for path in file_paths:
+        _, ext = os.path.splitext(path)
+        if ext.lower() not in allowed_extensions:
+            results.append(f"--- File: {path} ---\nError: Reading this file extension is not allowed. Only .py, .ts, .tsx, .md, and .txt are permitted.")
+            continue
+        try:
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            if read_by_chunks_of_40:
+                lines = content.splitlines()
+                chunks_output = []
+                for j, i in enumerate(range(0, len(lines), 40)):
+                    chunk_lines = lines[i:i+40]
+                    start_line = i + 1
+                    end_line = min(i + 40, len(lines))
+                    header = f"--- [Chunk {j} (Lines {start_line}-{end_line})] ---"
+                    chunks_output.append(header + "\n" + "\n".join(chunk_lines))
+                content = "\n\n".join(chunks_output)
+            results.append(f"--- File: {path} ---\n{content}")
+        except Exception as e:
+            results.append(f"--- File: {path} ---\nError reading file: {e}")
+    return "\n\n".join(results)
+
+def edit_text_files(file_path: str, chunks: Any) -> str:
+    """Edits specific line chunks of an existing text file.
+    
+    chunks can be a dictionary mapping chunk index (int or str) to the new string content.
+    - If a chunk index is not in the dict, it is skipped.
+    - If a chunk's value is an empty string "", that chunk is deleted.
+    - Otherwise, the chunk is replaced by the new string.
+    
+    For backward compatibility, an array is also accepted.
+    """
+    if isinstance(chunks, str):
+        try:
+            chunks = json.loads(chunks)
+        except Exception as e:
+            return f"Error: Could not parse chunks as JSON: {e}"
+            
+    # Convert list to dict for easier processing
+    if isinstance(chunks, list):
+        chunks = {str(i): val for i, val in enumerate(chunks) if val is not None}
+    elif not isinstance(chunks, dict):
+        return "Error: Chunks must be an array or dictionary of strings."
+        
+    # Read original file
+    if not os.path.exists(file_path):
+        return f"Error: File '{file_path}' does not exist. Cannot apply chunk-based edits to a non-existent file."
+        
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.read().splitlines()
+    except Exception as e:
+        return f"Error reading file '{file_path}': {e}"
+        
+    # Apply changes in reverse order of indices to keep preceding indices correct
+    try:
+        sorted_indices = sorted([int(k) for k in chunks.keys()], reverse=True)
+    except ValueError:
+        return "Error: Chunk keys must be integers."
+        
+    for j in sorted_indices:
+        chunk_val = chunks[str(j)]
+        if chunk_val is None:
+            continue
+            
+        if not isinstance(chunk_val, str):
+            return f"Error: Chunk at index {j} is not a string or null."
+            
+        start_idx = j * 40
+        if start_idx > len(lines):
+            return f"Error: Chunk at index {j} (starting at line {start_idx + 1}) is out of bounds for file with {len(lines)} lines."
+            
+        end_idx = min((j + 1) * 40, len(lines))
+        
+        # Replace the range with splitlines from the chunk_val
+        chunk_lines = chunk_val.splitlines()
+        lines[start_idx : end_idx] = chunk_lines
+        
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write("\n".join(lines) + ("\n" if lines else ""))
+        return f"Successfully edited {file_path}"
+    except Exception as e:
+        return f"Error writing to file '{file_path}': {e}"

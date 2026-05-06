@@ -8,15 +8,17 @@ from google.genai.types import GenerateContentConfig, GenerateContentResponse
 
 load_dotenv()
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ollama")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../ollama")))
 from ollama_tools import (
     fetch_website_text,
     list_files,
-    read_files,
+    read_text_files,
     read_image_file,
     create_file,
+    create_text_file,
     get_video_screenshot,
-    get_target_info
+    get_target_info,
+    edit_text_files
 )
 
 async def gemini_agent(
@@ -50,11 +52,13 @@ async def main():
     tools = [
         fetch_website_text,
         list_files,
-        read_files,
+        read_text_files,
         read_image_file,
         create_file,
+        create_text_file,
         get_video_screenshot,
-        get_target_info
+        get_target_info,
+        edit_text_files
     ]
     messages = []
 

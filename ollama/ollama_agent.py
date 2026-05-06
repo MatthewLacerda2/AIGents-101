@@ -3,21 +3,25 @@ from ollama import chat, ChatResponse
 from ollama_tools import (
     fetch_website_text,
     list_files,
-    read_files,
+    read_text_files,
     read_image_file,
     create_file,
+    create_text_file,
     get_video_screenshot,
-    get_target_info
+    get_target_info,
+    edit_text_files
 )
 
 available_functions = {
     'fetch_website_text': fetch_website_text,
     'list_files': list_files,
-    'read_files': read_files,
+    'read_text_files': read_text_files,
     'read_image_file': read_image_file,
     'create_file': create_file,
+    'create_text_file': create_text_file,
     'get_video_screenshot': get_video_screenshot,
     'get_target_info': get_target_info,
+    'edit_text_files': edit_text_files,
 }
 
 def main():
@@ -27,6 +31,7 @@ def main():
             "content": (
                 "You are a personal AI assistant running locally. "
                 "You are given tools to help you with your tasks, use them if and when necessary. "
+                "You can read files in chunks and make edits to specific line chunks of code using edit_text_files."
             )
         }
     ]
@@ -50,11 +55,13 @@ def main():
                 tools=[
                     fetch_website_text,
                     list_files,
-                    read_files,
+                    read_text_files,
                     read_image_file,
                     create_file,
+                    create_text_file,
                     get_video_screenshot,
-                    get_target_info
+                    get_target_info,
+                    edit_text_files
                 ],
                 think=True,
             )
