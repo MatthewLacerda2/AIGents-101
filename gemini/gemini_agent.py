@@ -92,6 +92,12 @@ async def main():
             except Exception as e:
                 print(f"\n[Error querying Gemini]: {e}")
                 break
+
+            # --- NEW METADATA TRACKING ---
+            usage = response.usage_metadata
+            if usage:
+                print(f"\n📊 Tokens: {usage.total_token_count} (Input: {usage.prompt_token_count} | Output: {usage.candidates_token_count})")
+            # -----------------------------
                 
             if response.text:
                 print(f"\n🤖 Assistant: {response.text}\n")
