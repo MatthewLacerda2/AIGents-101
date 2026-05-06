@@ -74,20 +74,44 @@ def read_files(file_paths: List[str]) -> str:
   return "\n\n".join(results)
 
 
+def read_image_file(image_path: str) -> str:
+  """Loads an image from the specified path to be processed by the model.
+
+  Args:
+    image_path: The filesystem path to the image file.
+
+  Returns:
+    A success message if the file exists, otherwise an error.
+  """
+  if not os.path.exists(image_path):
+      return f"Error: Image file not found at '{image_path}'."
+  return f"Success: Loaded image from '{image_path}'."
+
+
 available_functions = {
   'fetch_website_text': fetch_website_text,
   'list_files': list_files,
   'read_files': read_files,
+  'read_image_file': read_image_file,
 }
 
 def main():
     # Dedicated system prompt to anchor model behavior
     messages = [
-        {"role": "system", "content": "You are a helpful AI assistant. Use the tools provided when necessary."}
+        {
+            "role": "system",
+            "content": (
+                "You are a personal AI assistant running locally. "
+                "You are given tools to help you with your tasks, use them when necessary. "
+                "Your tools calls are listed as you call them, so you don't lose track of them. "
+                "It is thus nice to add a 'plan' to your response, so you don't lose track of what's important. "
+                "Such 'scratchpad' is added to your chat context as your turn's response."
+            )
+        }
     ]
     print("\nChatbot initialized. Type your message below, or '/exit' to quit.\n")
     
-    max_loop_limit = 8
+    max_loop_limit = 16
     
     while True:
         user_input = input("\n📝 You: ")
@@ -103,7 +127,7 @@ def main():
             response: ChatResponse = chat(
                 model='gemma4:e4b',
                 messages=messages,
-                tools=[fetch_website_text, list_files, read_files],
+                tools=[fetch_website_text, list_files, read_files, read_image_file],
                 think=True,
             )
             messages.append(response.message)
@@ -133,11 +157,16 @@ def main():
                         result = f"Error: Tool {function_name} not found."
                         
                     # add the tool result to the messages
-                    messages.append({
+                    tool_message = {
                         'role': 'tool', 
                         'name': function_name, 
                         'content': str(result)
-                    })
+                    }
+                    # If reading an image was successful, append the image path to the next ollama call context
+                    if function_name == 'read_image_file' and "Success" in str(result):
+                        tool_message['images'] = [arguments['image_path']]
+                        
+                    messages.append(tool_message)
             else:
                 # end the loop when there are no more tool calls
                 break
