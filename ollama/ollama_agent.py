@@ -26,10 +26,7 @@ def main():
             "role": "system",
             "content": (
                 "You are a personal AI assistant running locally. "
-                "You are given tools to help you with your tasks, use them when necessary. "
-                "Your tools calls are listed as you call them, so you don't lose track of them. "
-                "It is thus nice to add a 'plan' to your response, so you don't lose track of what's important. "
-                "Such 'scratchpad' is added to your chat context as your turn's response."
+                "You are given tools to help you with your tasks, use them if and when necessary. "
             )
         }
     ]

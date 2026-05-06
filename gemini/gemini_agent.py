@@ -19,16 +19,6 @@ from ollama_tools import (
     get_target_info
 )
 
-available_functions = {
-    'fetch_website_text': fetch_website_text,
-    'list_files': list_files,
-    'read_files': read_files,
-    'read_image_file': read_image_file,
-    'create_file': create_file,
-    'get_video_screenshot': get_video_screenshot,
-    'get_target_info': get_target_info,
-}
-
 async def gemini_agent(
     client: Client, messages: List[dict], tools: List[Any], model: str, system_instruction: str = None
 ) -> GenerateContentResponse:
@@ -79,57 +69,26 @@ async def main():
             
         messages.append({"role": "user", "parts": [{"text": user_input}]})
         
-        LOOP_LIMIT = 16
-        for i in range(LOOP_LIMIT):
-            try:
-                response = await gemini_agent(
-                    client,
-                    messages, 
-                    tools, 
-                    "gemini-3.1-flash-lite-preview", 
-                    system_instruction=instruction
-                )
-            except Exception as e:
-                print(f"\n[Error querying Gemini]: {e}")
-                break
-
-            # --- NEW METADATA TRACKING ---
+        try:
+            response = await gemini_agent(
+                client,
+                messages, 
+                tools, 
+                "gemini-3.1-flash-lite-preview", 
+                system_instruction=instruction
+            )
+            
             usage = response.usage_metadata
             if usage:
                 print(f"\n📊 Tokens: {usage.total_token_count} (Input: {usage.prompt_token_count} | Output: {usage.candidates_token_count})")
-            # -----------------------------
                 
             if response.text:
                 print(f"\n🤖 Assistant: {response.text}\n")
                 
-            if not response.function_calls:
-                break
+            messages.append({"role": "model", "parts": response.candidates[0].content.parts})
                 
-            messages.append({"role": "model", "parts": response.parts})
-            
-            tool_responses = []
-            for tool_call in response.function_calls:
-                tool_name = tool_call.name
-                tool_args = tool_call.args
-                
-                print(f"\n{tool_name} is being executed...")
-                
-                if tool_name in available_functions:
-                    try:
-                        result = available_functions[tool_name](**tool_args)
-                    except Exception as e:
-                        result = f"Error executing tool: {str(e)}"
-                else:
-                    result = f"Error: Tool {tool_name} not found."
-                
-                tool_responses.append({
-                    "function_response": {
-                        "name": tool_name,
-                        "response": {"result": str(result)}
-                    }
-                })
-                
-            messages.append({"role": "user", "parts": tool_responses})
+        except Exception as e:
+            print(f"\n[Error querying Gemini]: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
