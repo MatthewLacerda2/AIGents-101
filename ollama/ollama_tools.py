@@ -21,10 +21,14 @@ def fetch_website_text(url: str) -> str:
     except Exception as e:
         return f"Error fetching website: {e}"
 
-def list_files(directory: str = '.') -> str:
+def list_files(directory: str = '.', grep: str = None) -> str:
     try:
         files = os.listdir(directory)
+        if grep:
+            files = [f for f in files if grep in f]
         if not files:
+            if grep:
+                return f"No files matching '{grep}' found in '{directory}'."
             return f"The directory '{directory}' is empty."
         return "\n".join(files)
     except Exception as e:
