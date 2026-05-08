@@ -333,3 +333,44 @@ def edit_text_files(file_path: str, chunks: Any) -> str:
         return f"Successfully edited {file_path}"
     except Exception as e:
         return f"Error writing to file '{file_path}': {e}"
+
+def bash(script: str) -> str:
+    """Executes a terminal command or bash script inside the project environment.
+
+    Args:
+        script: The terminal command or shell script to execute.
+    """
+    import subprocess
+
+    script = script.strip()
+    if not script:
+        return "Error: Script is empty."
+
+    try:
+        # On Linux, execute via bash directly
+        result = subprocess.run(
+            script,
+            shell=True,
+            executable="/bin/bash",
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='ignore'
+        )
+
+        output = []
+        if result.stdout:
+            output.append(result.stdout)
+        if result.stderr:
+            output.append(result.stderr)
+
+        if not output:
+            if result.returncode == 0:
+                return "Command executed successfully (no output)."
+            else:
+                return f"Command exited with return code {result.returncode} (no output)."
+
+        return "\n".join(output)
+
+    except Exception as e:
+        return f"Error executing script: {str(e)}"

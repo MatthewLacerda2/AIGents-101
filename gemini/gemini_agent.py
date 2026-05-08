@@ -19,7 +19,8 @@ from ollama_tools import (
     create_text_file,
     get_video_screenshot,
     get_target_info,
-    edit_text_files
+    edit_text_files,
+    bash
 )
 
 available_functions = {
@@ -32,6 +33,7 @@ available_functions = {
     'get_video_screenshot': get_video_screenshot,
     'get_target_info': get_target_info,
     'edit_text_files': edit_text_files,
+    'bash': bash,
 }
 
 async def gemini_agent(

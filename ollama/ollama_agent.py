@@ -9,7 +9,8 @@ from ollama_tools import (
     create_text_file,
     get_video_screenshot,
     get_target_info,
-    edit_text_files
+    edit_text_files,
+    bash
 )
 
 available_functions = {
@@ -22,6 +23,7 @@ available_functions = {
     'get_video_screenshot': get_video_screenshot,
     'get_target_info': get_target_info,
     'edit_text_files': edit_text_files,
+    'bash': bash,
 }
 
 def main():
@@ -31,7 +33,8 @@ def main():
             "content": (
                 "You are a personal AI assistant running locally. "
                 "You are given tools to help you with your tasks, use them if and when necessary. "
-                "You can read files in chunks and make edits to specific line chunks of code using edit_text_files."
+                "You can read files in chunks and make edits to specific line chunks of code using edit_text_files. "
+                "You can run terminal commands or shell scripts using the bash tool."
             )
         }
     ]
@@ -61,7 +64,8 @@ def main():
                     create_text_file,
                     get_video_screenshot,
                     get_target_info,
-                    edit_text_files
+                    edit_text_files,
+                    bash
                 ],
                 think=True,
             )
