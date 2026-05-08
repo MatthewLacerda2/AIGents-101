@@ -30,30 +30,37 @@ def list_files(directory: str = '.') -> str:
     except Exception as e:
         return f"Error listing directory '{directory}': {e}"
 
-def read_image_file(image_path: str) -> str:
+def read_image_file(image_paths: List[str]) -> str:
+    if isinstance(image_paths, str):
+        image_paths = [image_paths]
     allowed_extensions = {'.png', '.bmp', '.jpg', '.jpeg'}
-    _, ext = os.path.splitext(image_path)
-    if ext.lower() not in allowed_extensions:
-        return f"Error: Extension '{ext}' is not permitted. Only .png, .bmp, .jpg, and .jpeg are allowed."
-    path = os.path.abspath(image_path)
-    if not os.path.exists(path):
-        base = os.path.basename(path)
-        name_only, _ = os.path.splitext(base)
-        directory = os.path.dirname(path) or '.'
-        suggested_files = []
-        try:
-            if os.path.exists(directory):
-                for f in os.listdir(directory):
-                    f_ext = os.path.splitext(f)[1].lower()
-                    if f_ext in allowed_extensions and name_only in f:
-                        suggested_files.append(f)
-        except Exception:
-            pass
-        msg = f"Image file not found at '{path}'."
-        if suggested_files:
-            msg += f" Did you mean: {', '.join(suggested_files)}"
-        return msg
-    return f"Success: Loaded image from '{path}'."
+    results = []
+    for image_path in image_paths:
+        _, ext = os.path.splitext(image_path)
+        if ext.lower() not in allowed_extensions:
+            results.append(f"Error: Extension '{ext}' is not permitted. Only .png, .bmp, .jpg, and .jpeg are allowed.")
+            continue
+        path = os.path.abspath(image_path)
+        if not os.path.exists(path):
+            base = os.path.basename(path)
+            name_only, _ = os.path.splitext(base)
+            directory = os.path.dirname(path) or '.'
+            suggested_files = []
+            try:
+                if os.path.exists(directory):
+                    for f in os.listdir(directory):
+                        f_ext = os.path.splitext(f)[1].lower()
+                        if f_ext in allowed_extensions and name_only in f:
+                            suggested_files.append(f)
+            except Exception:
+                pass
+            msg = f"Image file not found at '{path}'."
+            if suggested_files:
+                msg += f" Did you mean: {', '.join(suggested_files)}"
+            results.append(msg)
+        else:
+            results.append(f"Success: Loaded image from '{path}'.")
+    return "\n".join(results)
 
 def create_file(name: str, extension: str, content: str) -> str:
     allowed_extensions = {'.py', '.ts', '.md', '.txt'}

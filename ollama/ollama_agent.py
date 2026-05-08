@@ -98,10 +98,23 @@ def main():
                         'name': function_name, 
                         'content': str(result)
                     }
-                    if function_name == 'read_image_file' and "Success" in str(result):
-                        tool_message['images'] = [os.path.abspath(arguments['image_path'])]
-                        
                     messages.append(tool_message)
+
+                    if function_name == 'read_image_file' and "Success" in str(result):
+                        image_paths = arguments.get('image_paths') or arguments.get('image_path') or []
+                        if isinstance(image_paths, str):
+                            image_paths = [image_paths]
+                        loaded_images = []
+                        for path in image_paths:
+                            abs_path = os.path.abspath(path)
+                            if f"Success: Loaded image from '{abs_path}'." in result:
+                                loaded_images.append(abs_path)
+                        if loaded_images:
+                            messages.append({
+                                'role': 'user',
+                                'content': 'Here are the images you requested to read.',
+                                'images': loaded_images
+                            })
             else:
                 break
         else:
