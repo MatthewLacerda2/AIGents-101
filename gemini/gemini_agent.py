@@ -73,7 +73,8 @@ async def main():
         create_text_file,
         get_video_screenshot,
         get_target_info,
-        edit_text_files
+        edit_text_files,
+        bash
     ]
     messages = []
 
@@ -91,7 +92,7 @@ async def main():
         max_loop_limit = 16
         for loop_counter in range(max_loop_limit):
             try:
-                
+
                 response = await gemini_agent(
                     client,
                     messages, 
