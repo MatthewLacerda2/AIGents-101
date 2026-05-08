@@ -91,20 +91,13 @@ async def main():
         max_loop_limit = 16
         for loop_counter in range(max_loop_limit):
             try:
-
-                custom_safety_settings = [
-                    {
-                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                        "threshold": "BLOCK_NONE",
-                    },
-                ]
+                
                 response = await gemini_agent(
                     client,
                     messages, 
                     tools, 
                     "gemini-3.1-flash-lite-preview", 
                     system_instruction=instruction,
-                    safety_settings=custom_safety_settings
                 )
                 
                 usage = response.usage_metadata
