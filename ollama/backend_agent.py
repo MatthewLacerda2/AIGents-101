@@ -1,4 +1,5 @@
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from google.genai import Client
 from google.genai.types import GenerateContentConfig
@@ -6,51 +7,81 @@ from ollama_tools import *
 
 load_dotenv()
 
+@dataclass
+class ToolCallData:
+    id: str
+    name: str
+    args: Dict[str, Any]
+    response: Optional[Dict[str, Any]] = None
 
-def extract_response_data(parts, afc_history=None) -> tuple[str, list, str]:
+@dataclass
+class AgentResponseData:
+    text: str
+    tool_calls: List[ToolCallData]
+    thoughts: str
+
+def extract_response_data(parts, afc_history=None) -> AgentResponseData:
     text_segments = []
-    tool_calls = []
+    tool_calls: List[ToolCallData] = []
     thoughts = []
 
+    # 1. Process final response parts
     for part in parts:
-        if getattr(part, "text", None):
+        if part.text:
             text_segments.append(part.text)
         
         # If AFC is disabled, tool calls might be here
-        if getattr(part, "function_call", None):
+        if part.function_call:
             args = part.function_call.args
             if hasattr(args, "items"):
                 args = {k: v for k, v in args.items()}
-            tool_calls.append({
-                "name": part.function_call.name,
-                "args": args
-            })
+            tool_calls.append(ToolCallData(
+                id=part.function_call.id,
+                name=part.function_call.name,
+                args=args
+            ))
             
-        if getattr(part, "thought", None):
-            thoughts.append(str(part.thought))
-        elif getattr(part, "thought_signature", None):
-            thoughts.append(str(part.thought_signature))
+        if part.thought:
+            thoughts.append(str(part.thought) + "\n")
+        elif part.thought_signature:
+            thoughts.append(str(part.thought_signature) + "\n")
 
-    # Extract tool calls from AFC history if it exists
+    # 2. Process Automatic Function Calling history (if it exists)
     if afc_history:
         for history_content in afc_history:
-            if getattr(history_content, "role", None) == "model" and hasattr(history_content, "parts"):
-                for part in history_content.parts:
-                    if getattr(part, "function_call", None):
+            for part in history_content.parts:
+                
+                # A. The Model decides to call a tool
+                if history_content.role == "model":
+                    if part.function_call:
                         args = part.function_call.args
                         if hasattr(args, "items"):
                             args = {k: v for k, v in args.items()}
-                        tool_calls.append({
-                            "name": part.function_call.name,
-                            "args": args
-                        })
+                        tool_calls.append(ToolCallData(
+                            id=part.function_call.id,
+                            name=part.function_call.name,
+                            args=args
+                        ))
                     
-                    if getattr(part, "thought", None):
+                    if part.thought:
                         thoughts.append(str(part.thought) + "\n")
-                    elif getattr(part, "thought_signature", None):
+                    elif part.thought_signature:
                         thoughts.append(str(part.thought_signature) + "\n")
+                        
+                # B. The SDK (User) returns the tool response
+                elif history_content.role == "user":
+                    if part.function_response:
+                        # Find the last tool call with matching name that lacks a response
+                        for tc in reversed(tool_calls):
+                            if tc.name == part.function_response.name and tc.response is None:
+                                tc.response = part.function_response.response
+                                break
 
-    return "".join(text_segments), tool_calls, "".join(thoughts)
+    return AgentResponseData(
+        text="".join(text_segments),
+        tool_calls=tool_calls,
+        thoughts="".join(thoughts)
+    )
 
 async def gemini_agent(messages: List[dict], client: Client):
     try:
@@ -91,16 +122,16 @@ async def gemini_agent(messages: List[dict], client: Client):
 
         parts = response.candidates[0].content.parts
         afc_history = getattr(response, "automatic_function_calling_history", None)
-        text_response, extracted_tools, thoughts = extract_response_data(parts, afc_history)
+        extracted_data = extract_response_data(parts, afc_history)
 
-        if text_response:
-            print(f"\n🤖 Assistant: {text_response}\n")
+        if extracted_data.text:
+            print(f"\n🤖 Assistant: {extracted_data.text}\n")
 
         # Crucial: Append the original parts to maintain tool call context
         messages.append({"role": "model", "parts": parts})
         
-        return text_response, extracted_tools, thoughts
+        return extracted_data
 
     except Exception as e:
         print(f"\n[Error querying Gemini]: {e}")
-        return "", [], ""
+        return AgentResponseData(text="", tool_calls=[], thoughts="")

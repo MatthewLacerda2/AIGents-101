@@ -27,29 +27,31 @@ async def main():
         # Add user message to history
         messages.append({"role": "user", "parts": [{"text": user_input}]})
 
-        text_response, extracted_tools, thoughts = await gemini_agent(messages, client)
+        extracted_data = await gemini_agent(messages, client)
         
         print("\n" + "="*40)
         print("         DATA SEPARATION PROOF         ")
         print("="*40)
         
         # 1. Thoughts
-        if thoughts:
-            print(f"\n🧠 THOUGHT SIGNATURE:\n{thoughts}")
+        if extracted_data.thoughts:
+            print(f"\n🧠 THOUGHT SIGNATURE:\n{extracted_data.thoughts}")
         else:
             print("\n🧠 THOUGHT SIGNATURE: None")
             
         # 2. Tools
-        if extracted_tools:
+        if extracted_data.tool_calls:
             print("\n🛠️ TOOLS REQUESTED:")
-            for idx, tool in enumerate(extracted_tools):
-                print(f"  [{idx + 1}] {tool['name']}")
-                print(f"      Args: {tool['args']}")
+            for idx, tool in enumerate(extracted_data.tool_calls):
+                print(f"  [{idx + 1}] {tool.name} (id: {tool.id})")
+                print(f"      Args: {tool.args}")
+                if tool.response:
+                    print(f"      Response: {tool.response}")
         else:
             print("\n🛠️ TOOLS REQUESTED: None")
             
         # 3. Text
-        print(f"\n🗣️ TEXT RESPONSE:\n{text_response if text_response else 'No text response generated.'}")
+        print(f"\n🗣️ TEXT RESPONSE:\n{extracted_data.text if extracted_data.text else 'No text response generated.'}")
         print("="*40)
 
 if __name__ == "__main__":
