@@ -44,6 +44,11 @@ def extract_response_data(parts, afc_history=None) -> tuple[str, list, str]:
                             "name": part.function_call.name,
                             "args": args
                         })
+                    
+                    if getattr(part, "thought", None):
+                        thoughts.append(str(part.thought) + "\n")
+                    elif getattr(part, "thought_signature", None):
+                        thoughts.append(str(part.thought_signature) + "\n")
 
     return "".join(text_segments), tool_calls, "".join(thoughts)
 
