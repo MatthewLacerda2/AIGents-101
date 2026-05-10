@@ -22,6 +22,7 @@ from ollama_tools import (
     edit_text_files,
     bash
 )
+from ..ollama.backend_agent import extract_response_data
 
 available_functions = {
     'fetch_website_text': fetch_website_text,
@@ -101,14 +102,34 @@ async def main():
                     system_instruction=instruction,
                 )
                 
+                # Dump the full response to JSON for inspection
+                try:
+                    with open("response_dump.json", "w", encoding="utf-8") as f:
+                        f.write(response.model_dump_json(indent=2))
+                except Exception as dump_err:
+                    print(f"[Warning] Could not dump response: {dump_err}")
+
                 usage = response.usage_metadata
                 if usage:
                     print(f"\n📊 Tokens: {usage.total_token_count} (Input: {usage.prompt_token_count} | Output: {usage.candidates_token_count})")
                     
-                if response.text:
-                    print(f"\n🤖 Assistant: {response.text}\n")
+                parts = response.candidates[0].content.parts
+                afc_history = getattr(response, "automatic_function_calling_history", None)
+                extracted_data = extract_response_data(parts, afc_history)
+
+                if extracted_data.thoughts:
+                    print(f"\n🧠 THOUGHT SIGNATURE:\n{extracted_data.thoughts.strip()}")
                     
-                messages.append({"role": "model", "parts": response.candidates[0].content.parts})
+                if extracted_data.tool_calls:
+                    print("\n🛠️ TOOLS REQUESTED:")
+                    for idx, tool in enumerate(extracted_data.tool_calls):
+                        print(f"  [{idx + 1}] {tool.name} (id: {tool.id})")
+
+                if extracted_data.text:
+                    print(f"\n🤖 Assistant: {extracted_data.text}\n")
+                    
+                # Append the original parts to maintain tool call context
+                messages.append({"role": "model", "parts": parts})
                 
                 if response.function_calls:
                     tool_parts = []
