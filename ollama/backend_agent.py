@@ -27,6 +27,8 @@ def extract_response_data(parts) -> tuple[str, list, str]:
             
         if getattr(part, "thought", None):
             thoughts.append(str(part.thought))
+        elif getattr(part, "thought_signature", None):
+            thoughts.append(str(part.thought_signature))
 
     return "".join(text_segments), tool_calls, "".join(thoughts)
 
@@ -35,7 +37,12 @@ async def gemini_agent(messages: List[dict], client: Client):
         response = await client.aio.models.generate_content(
             contents=messages,
             model="gemini-3.1-flash-lite-preview",
-                config=GenerateContentConfig(
+            config=GenerateContentConfig(
+                system_instruction=(
+                    "You are a helpful AI assistant. You have access to various tools to interact "
+                    "with the filesystem, terminal, and web. When a user asks you to list files, read files, "
+                    "or perform actions, you MUST use the corresponding tools instead of guessing or answering directly."
+                ),
                 tools=[
                     fetch_website_text,
                     list_files,
