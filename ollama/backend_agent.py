@@ -7,7 +7,7 @@ from ollama_tools import *
 load_dotenv()
 
 
-def extract_response_data(parts) -> tuple[str, list, str]:
+def extract_response_data(parts, afc_history=None) -> tuple[str, list, str]:
     text_segments = []
     tool_calls = []
     thoughts = []
@@ -16,6 +16,7 @@ def extract_response_data(parts) -> tuple[str, list, str]:
         if getattr(part, "text", None):
             text_segments.append(part.text)
         
+        # If AFC is disabled, tool calls might be here
         if getattr(part, "function_call", None):
             args = part.function_call.args
             if hasattr(args, "items"):
@@ -29,6 +30,20 @@ def extract_response_data(parts) -> tuple[str, list, str]:
             thoughts.append(str(part.thought))
         elif getattr(part, "thought_signature", None):
             thoughts.append(str(part.thought_signature))
+
+    # Extract tool calls from AFC history if it exists
+    if afc_history:
+        for history_content in afc_history:
+            if getattr(history_content, "role", None) == "model" and hasattr(history_content, "parts"):
+                for part in history_content.parts:
+                    if getattr(part, "function_call", None):
+                        args = part.function_call.args
+                        if hasattr(args, "items"):
+                            args = {k: v for k, v in args.items()}
+                        tool_calls.append({
+                            "name": part.function_call.name,
+                            "args": args
+                        })
 
     return "".join(text_segments), tool_calls, "".join(thoughts)
 
@@ -58,12 +73,20 @@ async def gemini_agent(messages: List[dict], client: Client):
             )
         )
 
+        # Dump the full response to JSON for inspection
+        try:
+            with open("response_dump.json", "w", encoding="utf-8") as f:
+                f.write(response.model_dump_json(indent=2))
+        except Exception as dump_err:
+            print(f"[Warning] Could not dump response: {dump_err}")
+
         usage = response.usage_metadata
         if usage:
             print(f"\n📊 Tokens: {usage.total_token_count} (Input: {usage.prompt_token_count} | Output: {usage.candidates_token_count})")
 
         parts = response.candidates[0].content.parts
-        text_response, extracted_tools, thoughts = extract_response_data(parts)
+        afc_history = getattr(response, "automatic_function_calling_history", None)
+        text_response, extracted_tools, thoughts = extract_response_data(parts, afc_history)
 
         if text_response:
             print(f"\n🤖 Assistant: {text_response}\n")
