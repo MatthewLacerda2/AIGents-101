@@ -27,20 +27,20 @@ available_functions = {
 }
 
 def main():
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a personal AI assistant running locally. "
-                "You are given tools to help you with your tasks, use them if and when necessary. "
-                "You can read files in chunks and make edits to specific line chunks of code using edit_text_files. "
-                "You can run terminal commands or shell scripts using the bash tool."
-            )
-        }
-    ]
+    system_msg = {
+        "role": "system",
+        "content": (
+            "You are a personal AI assistant running locally. "
+            "You are given tools to help you with your tasks, use them if and when necessary. "
+            "You can read files in chunks and make edits to specific line chunks of code using edit_text_files. "
+            "You can run terminal commands or shell scripts using the bash tool."
+        )
+    }
     print("\nChatbot initialized. Type your message below, or '/exit' to quit.\n")
+    print("For performance reasons, the chat only keeps context of the latest 3 prompts and responses\n")
     
     max_loop_limit = 16
+    turns = []
     
     while True:
         user_input = input("\n📝 You: ")
@@ -49,12 +49,17 @@ def main():
         if not user_input.strip():
             continue
             
-        messages.append({'role': 'user', 'content': user_input})
+        current_turn_messages = [{'role': 'user', 'content': user_input}]
         
         for loop_counter in range(max_loop_limit):
+            active_messages = [system_msg]
+            for turn in turns[-2:]:
+                active_messages.extend(turn)
+            active_messages.extend(current_turn_messages)
+            
             response: ChatResponse = chat(
                 model='gemma4:e4b',
-                messages=messages,
+                messages=active_messages,
                 tools=[
                     fetch_website_text,
                     list_files,
@@ -69,7 +74,7 @@ def main():
                 ],
                 think=True,
             )
-            messages.append(response.message)
+            current_turn_messages.append(response.message)
             
             has_thought = False
             if hasattr(response.message, 'thinking') and response.message.thinking:
@@ -100,9 +105,10 @@ def main():
                     tool_message = {
                         'role': 'tool', 
                         'name': function_name, 
-                        'content': str(result)
+                        'arguments': arguments,
+                        'content': f"Arguments passed: {arguments}\nResult: {result}"
                     }
-                    messages.append(tool_message)
+                    current_turn_messages.append(tool_message)
 
                     if function_name == 'read_image_file' and "Success" in str(result):
                         image_paths = arguments.get('image_paths') or arguments.get('image_path') or []
@@ -114,7 +120,7 @@ def main():
                             if f"Success: Loaded image from '{abs_path}'." in result:
                                 loaded_images.append(abs_path)
                         if loaded_images:
-                            messages.append({
+                            current_turn_messages.append({
                                 'role': 'user',
                                 'content': 'Here are the images you requested to read.',
                                 'images': loaded_images
@@ -123,6 +129,8 @@ def main():
                 break
         else:
             print(f"\n[Warning] Reached the maximum loop limit of {max_loop_limit}.")
+            
+        turns.append(current_turn_messages)
 
 if __name__ == "__main__":
     main()

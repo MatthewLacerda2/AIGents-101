@@ -37,6 +37,9 @@ def list_files(directory: str = '.', grep: str = None) -> str:
 def read_image_file(image_paths: List[str]) -> str:
     if isinstance(image_paths, str):
         image_paths = [image_paths]
+    print("Args:")
+    for path in image_paths:
+        print(path)
     allowed_extensions = {'.png', '.bmp', '.jpg', '.jpeg'}
     results = []
     for image_path in image_paths:
